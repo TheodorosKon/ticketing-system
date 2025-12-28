@@ -6,7 +6,7 @@ CREATE TABLE ROLES (
     role_id INT NOT NULL AUTO_INCREMENT,
     role_name VARCHAR(255) NOT NULL,
     description VARCHAR(255),
-    created_at DATETIME
+    created_at DATETIME,
     PRIMARY KEY (role_id)
 );
 
@@ -79,7 +79,7 @@ CREATE TABLE COMMENTS (
     ticket_id INT NOT NULL,
     user_id INT NOT NULL,
     body TEXT NOT NULL,
-    created_at DATETIME
+    created_at DATETIME,
     PRIMARY KEY (comment_id),
     FOREIGN KEY (ticket_id) REFERENCES TICKETS (ticket_id),
     FOREIGN KEY (user_id) REFERENCES USERS (user_id)
