@@ -1,7 +1,8 @@
---Create the database if it does not exist
-CREATE DATABASE IF NOT EXISTS TicketingSystem
+-- Create the database if it does not exist
+CREATE DATABASE IF NOT EXISTS TicketingSystem;
+USE TicketingSystem;
 
---Role table holds the roles each user has and will be used to determine what is visible and usable to each user.
+-- Role table holds the roles each user has and will be used to determine what is visible and usable to each user.
 CREATE TABLE ROLES (
     role_id INT NOT NULL AUTO_INCREMENT,
     role_name VARCHAR(255) NOT NULL,
@@ -10,8 +11,8 @@ CREATE TABLE ROLES (
     PRIMARY KEY (role_id)
 );
 
---User table holds users of the system, this includes Support engineers, field or backoffice, Managers, Teamleaders
---and anyone else that needs access to the system.
+-- User table holds users of the system, this includes Support engineers, field or backoffice, Managers, Teamleaders
+-- and anyone else that needs access to the system.
 CREATE TABLE USERS (
     user_id INT NOT NULL AUTO_INCREMENT,
     username VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL UNIQUE,
@@ -30,14 +31,14 @@ CREATE TABLE USERS (
     FOREIGN KEY (role_id) REFERENCES ROLES (role_id)
 );
 
---This holds the different tags that can exist.
+-- This holds the different tags that can exist.
 CREATE TABLE TAGS (
     tag_id INT NOT NULL AUTO_INCREMENT,
     tag_name VARCHAR(255),
     PRIMARY KEY (tag_id)
 );
 
---Ticket table holds info about each individual ticket.
+-- Ticket table holds info about each individual ticket.
 CREATE TABLE TICKETS (
     ticket_id INT NOT NULL AUTO_INCREMENT,
     created_by INT NOT NULL,
@@ -58,7 +59,7 @@ CREATE TABLE TICKETS (
     FOREIGN KEY (assigned_to) REFERENCES USERS (user_id)
 );
 
---Attachment table holds any attachment that might have been uploaded by a support agent like photos or videos. It can also be used to hold SignOff documents.
+-- Attachment table holds any attachment that might have been uploaded by a support agent like photos or videos. It can also be used to hold SignOff documents.
 CREATE TABLE ATTACHMENTS (
     attachment_id INT NOT NULL AUTO_INCREMENT,
     ticket_id INT NOT NULL,
@@ -73,7 +74,7 @@ CREATE TABLE ATTACHMENTS (
     FOREIGN KEY (uploaded_by) REFERENCES USERS (user_id)
 );
 
---Comment table can hold comments left by the support or anyone that needs to leave extra information like a different phone number or address
+-- Comment table can hold comments left by the support or anyone that needs to leave extra information like a different phone number or address
 CREATE TABLE COMMENTS (
     comment_id INT NOT NULL AUTO_INCREMENT,
     ticket_id INT NOT NULL,
@@ -85,7 +86,7 @@ CREATE TABLE COMMENTS (
     FOREIGN KEY (user_id) REFERENCES USERS (user_id)
 );
 
---User tag holds tags that shows what skill each person has to be able to categorize them in certain situations.
+-- User tag holds tags that shows what skill each person has to be able to categorize them in certain situations.
 CREATE TABLE USER_TAGS (
     user_id INT NOT NULL,
     tag_id INT NOT NULL,
@@ -95,8 +96,8 @@ CREATE TABLE USER_TAGS (
     FOREIGN KEY (tag_id) REFERENCES TAGS (tag_id)
 );
 
---Ticket tag holds TAGs that tickets might have. This can be used to categorize tickets and assign proper technicians to the tickets.
---For example a ticket could have PRINTING and NETWORK tags which means the responding technician needs to have knowledge of both systems to be assigned.
+-- Ticket tag holds TAGs that tickets might have. This can be used to categorize tickets and assign proper technicians to the tickets.
+-- For example a ticket could have PRINTING and NETWORK tags which means the responding technician needs to have knowledge of both systems to be assigned.
 CREATE TABLE TICKET_TAGS (
     ticket_id INT NOT NULL,
     tag_id INT NOT NULL,
