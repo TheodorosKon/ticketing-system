@@ -3,6 +3,12 @@ const app = express();
 const mysql = require('mysql2');
 const cors = require('cors');
 
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = 'dev_secret_change_later';
+
+
 let con = mysql.createConnection({
     host: "localhost",
     port: "3306",
@@ -22,6 +28,42 @@ con.connect(err => {
 app.use(cors({
   origin: 'http://localhost:5173'
 }));
+
+app.get('/tickets/:id/comments', (req, res) => {
+  con.query(
+    'SELECT * FROM COMMENTS WHERE ticket_id = ? ORDER BY created_at',
+    [req.params.id],
+    (err, results) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      res.json(results);
+    }
+  );
+});
+
+app.post('/tickets/:id/comments', express.json(), (req, res) => {
+  const { body, user_id } = req.body;
+  const ticketId = req.params.id;
+
+  if (!body || !user_id) {
+    return res.status(400).json({ error: 'Missing fields' });
+  }
+
+  con.query(
+    `INSERT INTO COMMENTS (ticket_id, user_id, body, created_at)
+     VALUES (?, ?, ?, NOW())`,
+    [ticketId, user_id, body],
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'DB error' });
+      }
+      res.status(201).json({ success: true });
+    }
+  );
+});
 
 app.get('/tickets', (req, res) => {
   con.query('SELECT * FROM TICKETS', (err, results) => {
@@ -54,6 +96,33 @@ app.get('/tickets/:id', (req, res) => {
   );
 });
 
+app.post('/auth/login', express.json(), (req, res) => {
+  const { username, password } = req.body;
+
+  con.query(
+    'SELECT * FROM USERS WHERE username = ? AND is_active = 1',
+    [username],
+    async (err, results) => {
+      if (err) return res.status(500).json({ error: 'DB error' });
+      if (results.length === 0)
+        return res.status(401).json({ error: 'Invalid credentials' });
+
+      const user = results[0];
+      const valid = await bcrypt.compare(password, user.password_hash);
+
+      if (!valid)
+        return res.status(401).json({ error: 'Invalid credentials' });
+
+      const token = jwt.sign(
+        { user_id: user.user_id, role_id: user.role_id },
+        JWT_SECRET,
+        { expiresIn: '8h' }
+      );
+
+      res.json({ token });
+    }
+  );
+});
 
 app.listen(3000, () => {
   console.log('Backend running on port 3000');
