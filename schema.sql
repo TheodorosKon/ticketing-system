@@ -21,7 +21,7 @@ CREATE TABLE USERS (
     password_updated_at DATETIME NULL,
     first_name VARCHAR(255) NOT NULL,
     last_name VARCHAR(255) NOT NULL,
-    phone_main VARCHAR(255) NOT NULL,
+    phone_main VARCHAR(255) NULL,
     phone_backup VARCHAR(255),
     is_active BOOLEAN,
     role_id INT NOT NULL,

@@ -1,11 +1,33 @@
 const API_BASE = 'http://localhost:3000';
 
-export async function getTickets() {
-  const res = await fetch(`${API_BASE}/tickets`);
-  return res.json();
-}
+export const authHeader = () => ({
+  Authorization: `Bearer ${localStorage.getItem('token')}`
+});
 
-export async function getTicketById(id) {
-  const res = await fetch(`${API_BASE}/tickets/${id}`);
+export const getTickets = async () => {
+  const res = await fetch(`${API_BASE}/tickets`, {
+    headers: authHeader()
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+    return;
+  }
+
   return res.json();
-}
+};
+
+export const getTicketById = async () => {
+  const res = await fetch(`${API_BASE}/tickets/${id}`, {
+    headers: authHeader()
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+    return;
+  }
+
+  return res.json();
+};

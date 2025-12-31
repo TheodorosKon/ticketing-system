@@ -2,6 +2,8 @@ const express = require('express');
 const app = express();
 const mysql = require('mysql2');
 const cors = require('cors');
+const auth = require('./middleware/auth');
+const adminOnly = require('./middleware/adminOnly');
 
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -29,7 +31,7 @@ app.use(cors({
   origin: 'http://localhost:5173'
 }));
 
-app.get('/tickets/:id/comments', (req, res) => {
+app.get('/tickets/:id/comments', auth, (req, res) => {
   con.query(
     'SELECT * FROM COMMENTS WHERE ticket_id = ? ORDER BY created_at',
     [req.params.id],
@@ -43,7 +45,7 @@ app.get('/tickets/:id/comments', (req, res) => {
   );
 });
 
-app.post('/tickets/:id/comments', express.json(), (req, res) => {
+app.post('/tickets/:id/comments', express.json(), auth, (req, res) => {
   const { body, user_id } = req.body;
   const ticketId = req.params.id;
 
@@ -75,7 +77,7 @@ app.get('/tickets', (req, res) => {
   });
 });
 
-app.get('/tickets/:id', (req, res) => {
+app.get('/tickets/:id', auth, (req, res) => {
   const ticketId = req.params.id;
 
   con.query(
@@ -99,18 +101,21 @@ app.get('/tickets/:id', (req, res) => {
 app.post('/auth/login', express.json(), (req, res) => {
   const { username, password } = req.body;
 
+  if (!username || !password)
+    return res.status(400).json({ error: 'Missing credentials' });
+
   con.query(
-    'SELECT * FROM USERS WHERE username = ? AND is_active = 1',
+    'SELECT user_id, username, password_hash, role_id FROM USERS WHERE username = ? AND is_active = 1',
     [username],
-    async (err, results) => {
-      if (err) return res.status(500).json({ error: 'DB error' });
-      if (results.length === 0)
+    async (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (rows.length === 0)
         return res.status(401).json({ error: 'Invalid credentials' });
 
-      const user = results[0];
-      const valid = await bcrypt.compare(password, user.password_hash);
+      const user = rows[0];
+      const match = await bcrypt.compare(password, user.password_hash);
 
-      if (!valid)
+      if (!match)
         return res.status(401).json({ error: 'Invalid credentials' });
 
       const token = jwt.sign(
@@ -120,6 +125,34 @@ app.post('/auth/login', express.json(), (req, res) => {
       );
 
       res.json({ token });
+    }
+  );
+});
+
+app.post('/admin/users', auth, adminOnly, express.json(), async (req, res) => {
+  const {
+    username,
+    email,
+    password,
+    first_name,
+    last_name,
+    role_id
+  } = req.body;
+
+  if (!username || !email || !password || !role_id) {
+    return res.status(400).json({ error: 'Missing fields' });
+  }
+
+  const hash = await bcrypt.hash(password, 10);
+
+  con.query(
+    `INSERT INTO USERS 
+     (username, email, password_hash, first_name, last_name, role_id, is_active, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 1, NOW())`,
+    [username, email, hash, first_name, last_name, role_id],
+    (err) => {
+      if (err) return res.status(500).json({ error: 'User creation failed' });
+      res.json({ message: 'User created' });
     }
   );
 });
