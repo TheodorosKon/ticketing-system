@@ -106,3 +106,15 @@ CREATE TABLE TICKET_TAGS (
     FOREIGN KEY (ticket_id) REFERENCES TICKETS (ticket_id),
     FOREIGN KEY (tag_id) REFERENCES TAGS (tag_id)
 );
+
+CREATE TABLE IF NOT EXISTS AUDIT_LOGS (
+  audit_id INT AUTO_INCREMENT,
+  actor_user_id INT NOT NULL,
+  target_user_id INT NULL,
+  action VARCHAR(100) NOT NULL,
+  details JSON NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (audit_id),
+  FOREIGN KEY (actor_user_id) REFERENCES USERS(user_id),
+  FOREIGN KEY (target_user_id) REFERENCES USERS(user_id)
+);

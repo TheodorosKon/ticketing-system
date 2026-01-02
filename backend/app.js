@@ -4,6 +4,7 @@ const mysql = require('mysql2');
 const cors = require('cors');
 const auth = require('./middleware/auth');
 const adminOnly = require('./middleware/adminOnly');
+const audit = require('./utils/audit');
 
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -152,10 +153,125 @@ app.post('/admin/users', auth, adminOnly, express.json(), async (req, res) => {
     [username, email, hash, first_name, last_name, role_id],
     (err) => {
       if (err) return res.status(500).json({ error: 'User creation failed' });
+
+      audit.log(
+        con,
+        req.user.user_id,
+        'CREATE_USER',
+        null,
+        { username, email, role_id }
+      );
+
       res.json({ message: 'User created' });
     }
   );
 });
+
+app.get('/admin/users', auth, adminOnly, (req, res) => {
+  con.query(
+    `SELECT user_id, username, email, first_name, last_name, is_active, role_id
+     FROM USERS
+     ORDER BY created_at DESC`,
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: 'DB error' });
+      res.json(rows);
+    }
+  );
+});
+
+app.patch('/admin/users/:id/status', auth, adminOnly, express.json(), (req, res) => {
+  const targetId = req.params.id;
+  const is_active = req.body.is_active;
+
+  if (req.user.user_id == req.params.id) {
+    return res.status(400).json({ error: 'Cannot disable yourself' });
+  }
+
+  con.query(
+    'UPDATE USERS SET is_active = ? WHERE user_id = ?',
+    [req.body.is_active, req.params.id],
+    (err) => {
+      if (err) return res.status(500).json({ error: 'Update failed' });
+
+      audit.log(
+        con,
+        req.user.user_id,
+        is_active ? 'ENABLE_USER' : 'DISABLE_USER',
+        targetId
+      );
+
+      res.json({ message: 'User updated' });
+    }
+  );
+});
+
+
+app.get('/admin/roles', auth, adminOnly, (req, res) => {
+  con.query(
+    'SELECT role_id, role_name FROM ROLES',
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: 'DB error' });
+      res.json(rows);
+    }
+  );
+});
+
+app.get('/roles', auth, adminOnly, (req, res) => {
+  con.query(
+    'SELECT role_id, role_name, description FROM ROLES',
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: 'DB error' });
+      res.json(rows);
+    }
+  );
+});
+
+app.patch('/admin/users/:id/role', auth, adminOnly, express.json(), (req, res) => {
+  const { role_id } = req.body;
+  const targetId = req.params.id;
+
+  con.query(
+    'UPDATE USERS SET role_id = ? WHERE user_id = ?',
+    [role_id, req.params.id],
+    (err) => {
+      if (err) return res.status(500).json({ error: 'Update failed' });
+
+      audit.log(
+        con,
+        req.user.user_id,
+        'CHANGE_USER_ROLE',
+        targetId,
+        { new_role_id: role_id }
+      );
+
+      res.json({ message: 'Role updated' });
+    }
+  );
+});
+
+app.get('/admin/audit', auth, adminOnly, (req, res) => {
+  con.query(
+    `SELECT 
+        a.audit_id,
+        a.action,
+        a.created_at,
+        u1.username AS actor,
+        u2.username AS target
+     FROM AUDIT_LOGS a
+     LEFT JOIN USERS u1 ON a.actor_user_id = u1.user_id
+     LEFT JOIN USERS u2 ON a.target_user_id = u2.user_id
+     ORDER BY a.created_at DESC
+     LIMIT 200`,
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'DB error' });
+      }
+      res.json(rows);
+    }
+  );
+});
+
 
 app.listen(3000, () => {
   console.log('Backend running on port 3000');
