@@ -27,6 +27,7 @@ CREATE TABLE USERS (
     role_id INT NOT NULL,
     created_at DATETIME,
     updated_at DATETIME,
+    force_password_change BOOLEAN DEFAULT 0,
     PRIMARY KEY (user_id),
     FOREIGN KEY (role_id) REFERENCES ROLES (role_id)
 );

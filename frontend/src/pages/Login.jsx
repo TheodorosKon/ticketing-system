@@ -20,7 +20,11 @@ function Login() {
     }
 
     localStorage.setItem('token', data.token);
-    window.location.href = '/tickets';
+    if (data.force_password_change) {
+      window.location.href = '/change-password';
+    } else {
+      window.location.href = '/tickets';
+    }
   };
 
   return (

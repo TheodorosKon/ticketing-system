@@ -106,7 +106,7 @@ app.post('/auth/login', express.json(), (req, res) => {
     return res.status(400).json({ error: 'Missing credentials' });
 
   con.query(
-    'SELECT user_id, username, password_hash, role_id FROM USERS WHERE username = ? AND is_active = 1',
+    'SELECT user_id, username, password_hash, role_id, force_password_change FROM USERS WHERE username = ? AND is_active = 1',
     [username],
     async (err, rows) => {
       if (err) return res.status(500).json({ error: 'Database error' });
@@ -125,7 +125,10 @@ app.post('/auth/login', express.json(), (req, res) => {
         { expiresIn: '8h' }
       );
 
-      res.json({ token });
+      res.json({
+        token,
+        force_password_change: user.force_password_change
+      });
     }
   );
 });
@@ -272,6 +275,90 @@ app.get('/admin/audit', auth, adminOnly, (req, res) => {
   );
 });
 
+app.patch(
+  '/admin/users/:id/password-reset',
+  auth,
+  adminOnly,
+  express.json(),
+  async (req, res) => {
+    const targetId = req.params.id;
+    const { new_password } = req.body;
+
+    if (!new_password)
+      return res.status(400).json({ error: 'Password required' });
+
+    const hash = await bcrypt.hash(new_password, 10);
+
+    con.query(
+      'UPDATE USERS SET password_hash = ?, password_updated_at = NOW() WHERE user_id = ?',
+      [hash, targetId],
+      (err) => {
+        if (err) return res.status(500).json({ error: 'Update failed' });
+
+        audit.log(
+          con,
+          req.user.user_id,
+          'RESET_USER_PASSWORD',
+          targetId
+        );
+
+        res.json({ message: 'Password reset' });
+      }
+    );
+  }
+);
+
+app.patch('/admin/users/:id/force-password-change', auth, adminOnly, (req, res) => {
+  const targetId = req.params.id;
+
+  con.query(
+    'UPDATE USERS SET force_password_change = 1 WHERE user_id = ?',
+    [targetId],
+    (err) => {
+      if (err) return res.status(500).json({ error: 'Update failed' });
+
+      audit.log(
+        con,
+        req.user.user_id,
+        'FORCE_PASSWORD_CHANGE',
+        targetId
+      );
+
+      res.json({ message: 'Password change forced' });
+    }
+  );
+});
+
+app.post('/auth/change-password', auth, express.json(), async (req, res) => {
+  const { old_password, new_password } = req.body;
+
+  if (!old_password || !new_password)
+    return res.status(400).json({ error: 'Missing fields' });
+
+  con.query(
+    'SELECT password_hash FROM USERS WHERE user_id = ?',
+    [req.user.user_id],
+    async (err, rows) => {
+      if (err || rows.length === 0)
+        return res.status(500).json({ error: 'DB error' });
+
+      const valid = await bcrypt.compare(old_password, rows[0].password_hash);
+      if (!valid)
+        return res.status(401).json({ error: 'Wrong password' });
+
+      const hash = await bcrypt.hash(new_password, 10);
+
+      con.query(
+        'UPDATE USERS SET password_hash = ?, force_password_change = 0 WHERE user_id = ?',
+        [hash, req.user.user_id],
+        (err) => {
+          if (err) return res.status(500).json({ error: 'Update failed' });
+          res.json({ message: 'Password changed' });
+        }
+      );
+    }
+  );
+});
 
 app.listen(3000, () => {
   console.log('Backend running on port 3000');

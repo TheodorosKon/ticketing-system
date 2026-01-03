@@ -88,6 +88,7 @@ function AdminUsers() {
             <th>Role</th>
             <th>Status</th>
             <th>Actions</th>
+            <th>Password Tools</th>
           </tr>
         </thead>
 
@@ -123,6 +124,40 @@ function AdminUsers() {
                   >
                     {u.is_active ? 'Disable' : 'Enable'}
                   </button>
+                </td>
+
+                <td>
+                  <button
+                    onClick={() => {
+                      const pwd = prompt('New password:');
+                      if (!pwd) return;
+
+                      fetch(`http://localhost:3000/admin/users/${u.user_id}/password-reset`, {
+                        method: 'PATCH',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          Authorization: `Bearer ${localStorage.getItem('token')}`
+                        },
+                        body: JSON.stringify({ new_password: pwd })
+                      });
+                    }}
+                  >
+                    Reset Password
+                  </button>
+                  <button
+                    onClick={() => {
+                      fetch(`http://localhost:3000/admin/users/${u.user_id}/force-password-change`, {
+                        method: 'PATCH',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          Authorization: `Bearer ${localStorage.getItem('token')}`
+                        }
+                      });
+                    }}
+                  >
+                    Force Password Reset
+                  </button>
+
                 </td>
               </tr>
             );
