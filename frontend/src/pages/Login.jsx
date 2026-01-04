@@ -19,7 +19,9 @@ function Login() {
       return;
     }
 
-    localStorage.setItem('token', data.token);
+    localStorage.setItem('accessToken', data.accessToken);
+    localStorage.setItem('refreshToken', data.refreshToken);
+
     if (data.force_password_change) {
       window.location.href = '/change-password';
     } else {

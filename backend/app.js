@@ -8,6 +8,10 @@ const audit = require('./utils/audit');
 
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+
+const ACCESS_TOKEN_EXP = '15m';
+const REFRESH_TOKEN_DAYS = 30;
 
 const JWT_SECRET = 'dev_secret_change_later';
 
@@ -119,17 +123,63 @@ app.post('/auth/login', express.json(), (req, res) => {
       if (!match)
         return res.status(401).json({ error: 'Invalid credentials' });
 
-      const token = jwt.sign(
+      const accessToken = jwt.sign(
         { user_id: user.user_id, role_id: user.role_id },
         JWT_SECRET,
-        { expiresIn: '8h' }
+        { expiresIn: ACCESS_TOKEN_EXP }
+      );
+
+      const refreshToken = crypto.randomBytes(64).toString('hex');
+
+      con.query(
+        `INSERT INTO REFRESH_TOKENS (user_id, token, expires_at)
+        VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))`,
+        [user.user_id, refreshToken, REFRESH_TOKEN_DAYS]
       );
 
       res.json({
-        token,
-        force_password_change: user.force_password_change
+        accessToken,
+        refreshToken,
+        force_password_change: user.force_password_change === 1
       });
     }
+  );
+});
+
+app.post('/auth/refresh', express.json(), (req, res) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken)
+    return res.status(400).json({ error: 'Missing refresh token' });
+
+  con.query(
+    `SELECT rt.user_id, u.role_id
+     FROM REFRESH_TOKENS rt
+     JOIN USERS u ON rt.user_id = u.user_id
+     WHERE rt.token = ? AND rt.revoked = 0 AND rt.expires_at > NOW()`,
+    [refreshToken],
+    (err, rows) => {
+      if (err || rows.length === 0)
+        return res.status(401).json({ error: 'Invalid refresh token' });
+
+      const user = rows[0];
+
+      const newAccessToken = jwt.sign(
+        { user_id: user.user_id, role_id: user.role_id },
+        JWT_SECRET,
+        { expiresIn: ACCESS_TOKEN_EXP }
+      );
+
+      res.json({ accessToken: newAccessToken });
+    }
+  );
+});
+
+app.post('/auth/logout', auth, (req, res) => {
+  con.query(
+    'UPDATE REFRESH_TOKENS SET revoked = 1 WHERE user_id = ?',
+    [req.user.user_id],
+    () => res.json({ message: 'Logged out' })
   );
 });
 
