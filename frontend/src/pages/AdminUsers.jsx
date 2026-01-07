@@ -4,10 +4,10 @@ function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [form, setForm] = useState({});
-  const myUserId = JSON.parse(atob(localStorage.getItem('token').split('.')[1])).user_id;
+  const myUserId = JSON.parse(atob(localStorage.getItem('accessToken').split('.')[1])).user_id;
 
   const authHeader = {
-    Authorization: `Bearer ${localStorage.getItem('token')}`,
+    Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
     'Content-Type': 'application/json'
   };
 
@@ -136,7 +136,7 @@ function AdminUsers() {
                         method: 'PATCH',
                         headers: {
                           'Content-Type': 'application/json',
-                          Authorization: `Bearer ${localStorage.getItem('token')}`
+                          Authorization: `Bearer ${localStorage.getItem('accessToken')}`
                         },
                         body: JSON.stringify({ new_password: pwd })
                       });
@@ -150,7 +150,7 @@ function AdminUsers() {
                         method: 'PATCH',
                         headers: {
                           'Content-Type': 'application/json',
-                          Authorization: `Bearer ${localStorage.getItem('token')}`
+                          Authorization: `Bearer ${localStorage.getItem('accessToken')}`
                         }
                       });
                     }}
