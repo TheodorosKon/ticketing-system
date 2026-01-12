@@ -21,6 +21,7 @@ function Login() {
 
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
+    localStorage.setItem('userRole', data.userRole);
 
     if (data.force_password_change) {
       window.location.href = '/change-password';

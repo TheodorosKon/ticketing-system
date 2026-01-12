@@ -82,6 +82,57 @@ app.get('/tickets', (req, res) => {
   });
 });
 
+app.post('/tickets', auth, express.json(), (req, res) => {
+  const {
+    title,
+    description,
+    device_manufacturer,
+    device_model,
+    device_serial_number,
+    device_os
+  } = req.body;
+
+  if (!title || !description || !device_serial_number) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  con.query(
+    `INSERT INTO TICKETS
+     (title, description, device_manufacturer, device_model,
+      device_serial_number, device_os,
+      status, priority, created_by, opened_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'OPEN', 3, ?, NOW())`,
+    [
+      title,
+      description,
+      device_manufacturer,
+      device_model,
+      device_serial_number,
+      device_os,
+      req.user.user_id
+    ],
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'DB error' });
+      }
+
+      audit.log(
+        con,
+        req.user.user_id,
+        'CREATE_TICKET',
+        result.insertId,
+        { title }
+      );
+
+      res.status(201).json({
+        ticket_id: result.insertId,
+        message: 'Ticket created'
+      });
+    }
+  );
+});
+
 app.get('/tickets/:id', auth, (req, res) => {
   const ticketId = req.params.id;
 
@@ -110,7 +161,7 @@ app.post('/auth/login', express.json(), (req, res) => {
     return res.status(400).json({ error: 'Missing credentials' });
 
   con.query(
-    'SELECT user_id, username, password_hash, role_id, force_password_change FROM USERS WHERE username = ? AND is_active = 1',
+    'SELECT user_id, username, password_hash, USERS.role_id, force_password_change, role_name FROM USERS INNER JOIN ROLES ON USERS.role_id = ROLES.role_id WHERE username = ? AND is_active = 1',
     [username],
     async (err, rows) => {
       if (err) return res.status(500).json({ error: 'Database error' });
@@ -140,6 +191,7 @@ app.post('/auth/login', express.json(), (req, res) => {
       res.json({
         accessToken,
         refreshToken,
+        userRole: user.role_name,
         force_password_change: user.force_password_change === 1
       });
     }
@@ -406,6 +458,92 @@ app.post('/auth/change-password', auth, express.json(), async (req, res) => {
           res.json({ message: 'Password changed' });
         }
       );
+    }
+  );
+});
+
+app.patch('/tickets/:id/assign', auth, adminOnly, express.json(), (req, res) => {
+  const ticketId = req.params.id;
+  const { assigned_to } = req.body;
+
+  if (!assigned_to) {
+    return res.status(400).json({ error: 'assigned_to required' });
+  }
+
+  con.query(
+    `UPDATE TICKETS SET assigned_to = ?, updated_at = NOW()
+     WHERE ticket_id = ?`,
+    [assigned_to, ticketId],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: 'DB error' });
+
+      audit.log(
+        con,
+        req.user.user_id,
+        'ASSIGN_TICKET',
+        ticketId,
+        { assigned_to }
+      );
+
+      res.json({ message: 'Ticket assigned' });
+    }
+  );
+});
+
+const ALLOWED_STATUSES = ['OPEN', 'IN_PROGRESS', 'WAITING', 'CLOSED'];
+
+app.patch('/tickets/:id/status', auth, express.json(), (req, res) => {
+  const ticketId = req.params.id;
+  const { status } = req.body;
+
+  if (!ALLOWED_STATUSES.includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+
+  con.query(
+    `UPDATE TICKETS SET status = ?, updated_at = NOW()
+     WHERE ticket_id = ?`,
+    [status, ticketId],
+    (err) => {
+      if (err) return res.status(500).json({ error: 'DB error' });
+
+      audit.log(
+        con,
+        req.user.user_id,
+        'CHANGE_TICKET_STATUS',
+        ticketId,
+        { status }
+      );
+
+      res.json({ message: 'Status updated' });
+    }
+  );
+});
+
+app.patch('/tickets/:id/priority', auth, adminOnly, express.json(), (req, res) => {
+  const ticketId = req.params.id;
+  const { priority } = req.body;
+
+  if (priority < 1 || priority > 5) {
+    return res.status(400).json({ error: 'Priority must be 1–5' });
+  }
+
+  con.query(
+    `UPDATE TICKETS SET priority = ?, updated_at = NOW()
+     WHERE ticket_id = ?`,
+    [priority, ticketId],
+    (err) => {
+      if (err) return res.status(500).json({ error: 'DB error' });
+
+      audit.log(
+        con,
+        req.user.user_id,
+        'CHANGE_TICKET_PRIORITY',
+        ticketId,
+        { priority }
+      );
+
+      res.json({ message: 'Priority updated' });
     }
   );
 });

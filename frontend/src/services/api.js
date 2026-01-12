@@ -19,6 +19,7 @@ const refreshAccessToken = async () => {
 
   const data = await res.json();
   localStorage.setItem('accessToken', data.accessToken);
+  localStorage.setItem('userRole', data.roleName);
   return data.accessToken;
 };
 
@@ -78,3 +79,6 @@ export const getTicketById = async () => {
 
   return res.json();
 };
+
+export const getToken = () => localStorage.getItem('accessToken');
+export const getRole = () => localStorage.getItem('role');
