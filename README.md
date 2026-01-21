@@ -1,2 +1,5 @@
-# ticketing-system-backend
- The backend of a ticketing system that can be used to provide support
+# ticketing-system
+
+A fukllstack ticketing system to document and provide support
+
+Project includes backend, frontend as well as a mobile application.
